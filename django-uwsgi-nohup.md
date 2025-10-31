@@ -1,8 +1,8 @@
-Perfect! Here are the complete scripts for running a Django API using the same nohup + uWSGI approach on port 7000:
+Perfect! Since your Django project structure has `graph_api` as the root folder under `app`, let me update the scripts accordingly:
 
-## **Django API Deployment Scripts**
+## **Updated Django API Scripts for graph_api Structure**
 
-### **Step 1: Create Django uWSGI Config**
+### **Step 1: Updated Django uWSGI Config**
 
 ```bash
 nano /home/emerg1/app/uwsgi_django.ini
@@ -10,8 +10,8 @@ nano /home/emerg1/app/uwsgi_django.ini
 
 ```ini
 [uwsgi]
-# Django application settings
-module = app.wsgi:application
+# Django application settings - updated for graph_api
+module = graph_api.wsgi:application
 chdir = /home/emerg1/app
 pythonpath = /home/emerg1/app
 
@@ -24,8 +24,8 @@ enable-threads = true
 # Network binding
 http = 0.0.0.0:7000
 
-# Django specific
-env = DJANGO_SETTINGS_MODULE=app.settings
+# Django specific - updated for graph_api
+env = DJANGO_SETTINGS_MODULE=graph_api.settings
 vacuum = true
 die-on-term = true
 
@@ -41,12 +41,12 @@ log-maxsize = 50000000
 log-date = true
 log-level = info
 
-# Static files (if needed)
+# Static files
 static-map = /static=/home/emerg1/app/static
 static-expires-uri = /static/.*\.[a-f0-9]{12,}\.(css|js|png|jpg|jpeg|gif|ico|woff|ttf) 315360000
 ```
 
-### **Step 2: Create Django Startup Script**
+### **Step 2: Updated Django Startup Script**
 
 ```bash
 nano /home/emerg1/app/start_django_nohup.sh
@@ -56,7 +56,7 @@ nano /home/emerg1/app/start_django_nohup.sh
 #!/bin/bash
 set -e
 
-echo "Starting Django API deployment..."
+echo "Starting Django Graph API deployment..."
 
 # Navigate to Django app directory
 cd /home/emerg1/app
@@ -67,9 +67,15 @@ source /home/emerg1/.venv/bin/activate
 # Ensure logs directory exists
 mkdir -p logs
 
-# Export Django settings and Python path
-export DJANGO_SETTINGS_MODULE=app.settings
+# Export Django settings and Python path for graph_api
+export DJANGO_SETTINGS_MODULE=graph_api.settings
 export PYTHONPATH="/home/emerg1/app:$PYTHONPATH"
+
+# Check if manage.py exists
+if [ ! -f manage.py ]; then
+    echo "Error: manage.py not found in /home/emerg1/app"
+    exit 1
+fi
 
 # Run Django management commands
 echo "Running Django migrations..."
@@ -89,8 +95,8 @@ else:
     print('Superuser already exists')
 " || true
 
-# Start Django with uWSGI using nohup
-echo "Starting Django API with uWSGI..."
+# Start Django Graph API with uWSGI using nohup
+echo "Starting Django Graph API with uWSGI..."
 nohup uwsgi --ini uwsgi_django.ini > logs/django_startup.log 2>&1 &
 
 # Get the PID
@@ -98,11 +104,12 @@ DJANGO_PID=$!
 echo $DJANGO_PID > logs/django.pid
 
 echo "================================"
-echo "Django API started successfully!"
+echo "Django Graph API started successfully!"
 echo "PID: $DJANGO_PID"
 echo "URL: http://10.198.52.64:7000"
 echo "Admin: http://10.198.52.64:7000/admin"
 echo "API Docs: http://10.198.52.64:7000/api/"
+echo "Graph API: http://10.198.52.64:7000/graph/"
 echo "================================"
 echo "Useful commands:"
 echo "  View logs: tail -f /home/emerg1/app/logs/django_uwsgi.log"
@@ -111,13 +118,7 @@ echo "  Stop app: ./stop_django.sh"
 echo "================================"
 ```
 
-Make it executable:
-
-```bash
-chmod +x /home/emerg1/app/start_django_nohup.sh
-```
-
-### **Step 3: Create Django Stop Script**
+### **Step 3: Updated Django Stop Script**
 
 ```bash
 nano /home/emerg1/app/stop_django.sh
@@ -126,43 +127,37 @@ nano /home/emerg1/app/stop_django.sh
 ```bash
 #!/bin/bash
 
-echo "Stopping Django API..."
+echo "Stopping Django Graph API..."
 
 cd /home/emerg1/app
 
 # Stop using PID file
 if [ -f logs/django.pid ]; then
     PID=$(cat logs/django.pid)
-    echo "Stopping Django API (PID: $PID)..."
+    echo "Stopping Django Graph API (PID: $PID)..."
     kill $PID 2>/dev/null || true
     rm logs/django.pid
-    echo "Django API stopped via PID."
+    echo "Django Graph API stopped via PID."
 else
     echo "No PID file found."
 fi
 
 # Also kill any Django uwsgi processes for this user
 echo "Cleaning up any remaining uwsgi processes..."
-pkill -f "uwsgi.*app.wsgi" || true
+pkill -f "uwsgi.*graph_api.wsgi" || true
 pkill -f "uwsgi.*7000" || true
 
 # Check if any processes are still running
-REMAINING=$(ps aux | grep -E "(uwsgi.*7000|uwsgi.*app.wsgi)" | grep -v grep | wc -l)
+REMAINING=$(ps aux | grep -E "(uwsgi.*7000|uwsgi.*graph_api.wsgi)" | grep -v grep | wc -l)
 if [ $REMAINING -eq 0 ]; then
-    echo "Django API stopped successfully."
+    echo "Django Graph API stopped successfully."
 else
     echo "Warning: Some uwsgi processes may still be running."
-    ps aux | grep -E "(uwsgi.*7000|uwsgi.*app.wsgi)" | grep -v grep
+    ps aux | grep -E "(uwsgi.*7000|uwsgi.*graph_api.wsgi)" | grep -v grep
 fi
 ```
 
-Make it executable:
-
-```bash
-chmod +x /home/emerg1/app/stop_django.sh
-```
-
-### **Step 4: Create Django Management Script**
+### **Step 4: Updated Django Management Script**
 
 ```bash
 nano /home/emerg1/app/manage_django.sh
@@ -174,23 +169,26 @@ nano /home/emerg1/app/manage_django.sh
 cd /home/emerg1/app
 source /home/emerg1/.venv/bin/activate
 
+# Set Django settings for graph_api
+export DJANGO_SETTINGS_MODULE=graph_api.settings
+
 case $1 in
     start)
-        echo "Starting Django API..."
+        echo "Starting Django Graph API..."
         ./start_django_nohup.sh
         ;;
     stop)
-        echo "Stopping Django API..."
+        echo "Stopping Django Graph API..."
         ./stop_django.sh
         ;;
     restart)
-        echo "Restarting Django API..."
+        echo "Restarting Django Graph API..."
         ./stop_django.sh
         sleep 3
         ./start_django_nohup.sh
         ;;
     status)
-        echo "Django API Status:"
+        echo "Django Graph API Status:"
         if [ -f logs/django.pid ]; then
             PID=$(cat logs/django.pid)
             if ps -p $PID > /dev/null; then
@@ -211,7 +209,7 @@ case $1 in
         fi
         ;;
     logs)
-        echo "Viewing Django logs (Press Ctrl+C to exit):"
+        echo "Viewing Django Graph API logs (Press Ctrl+C to exit):"
         tail -f logs/django_uwsgi.log
         ;;
     shell)
@@ -223,35 +221,34 @@ case $1 in
         python manage.py migrate
         ;;
     test)
-        echo "Testing Django API..."
+        echo "Testing Django Graph API..."
         curl -s http://localhost:7000/ | head -20
         echo ""
-        echo "API test completed."
+        echo "Graph API test completed."
+        ;;
+    dbshell)
+        echo "Opening Django database shell..."
+        python manage.py dbshell
         ;;
     *)
-        echo "Django API Management Script"
-        echo "Usage: $0 {start|stop|restart|status|logs|shell|migrate|test}"
+        echo "Django Graph API Management Script"
+        echo "Usage: $0 {start|stop|restart|status|logs|shell|migrate|test|dbshell}"
         echo ""
         echo "Commands:"
-        echo "  start   - Start Django API"
-        echo "  stop    - Stop Django API"
-        echo "  restart - Restart Django API"
+        echo "  start   - Start Django Graph API"
+        echo "  stop    - Stop Django Graph API"
+        echo "  restart - Restart Django Graph API"
         echo "  status  - Check if API is running"
         echo "  logs    - View real-time logs"
         echo "  shell   - Open Django shell"
         echo "  migrate - Run database migrations"
         echo "  test    - Test API endpoint"
+        echo "  dbshell - Open database shell"
         ;;
 esac
 ```
 
-Make it executable:
-
-```bash
-chmod +x /home/emerg1/app/manage_django.sh
-```
-
-### **Step 5: Create Django Requirements Check Script**
+### **Step 5: Updated Setup Check Script**
 
 ```bash
 nano /home/emerg1/app/check_django_setup.sh
@@ -260,10 +257,13 @@ nano /home/emerg1/app/check_django_setup.sh
 ```bash
 #!/bin/bash
 
-echo "Checking Django setup..."
+echo "Checking Django Graph API setup..."
 
 cd /home/emerg1/app
 source /home/emerg1/.venv/bin/activate
+
+# Set Django settings
+export DJANGO_SETTINGS_MODULE=graph_api.settings
 
 # Check if Django is installed
 echo "1. Checking Django installation..."
@@ -281,58 +281,90 @@ else
     exit 1
 fi
 
+# Check if graph_api directory exists
+echo "3. Checking graph_api directory..."
+if [ -d graph_api ]; then
+    echo "✓ graph_api directory found"
+    if [ -f graph_api/settings.py ]; then
+        echo "✓ graph_api/settings.py found"
+    else
+        echo "✗ graph_api/settings.py not found"
+        exit 1
+    fi
+    if [ -f graph_api/wsgi.py ]; then
+        echo "✓ graph_api/wsgi.py found"
+    else
+        echo "✗ graph_api/wsgi.py not found"
+        exit 1
+    fi
+else
+    echo "✗ graph_api directory not found in /home/emerg1/app"
+    exit 1
+fi
+
 # Check Django settings
-echo "3. Checking Django settings..."
+echo "4. Checking Django settings..."
 python manage.py check --deploy || {
     echo "Django check failed. Continuing anyway..."
 }
 
 # Check database
-echo "4. Checking database..."
+echo "5. Checking database..."
 python -c "
 import django
 django.setup()
 from django.db import connection
 print(f'Database: {connection.settings_dict[\"ENGINE\"]}')
-"
+" || echo "Database check failed, but continuing..."
 
 # Check if uWSGI is available
-echo "5. Checking uWSGI..."
+echo "6. Checking uWSGI..."
 uwsgi --version || {
     echo "uWSGI not found. Installing..."
     pip install uwsgi
 }
 
-echo "✓ Django setup check completed!"
+echo "✓ Django Graph API setup check completed!"
+echo ""
+echo "Expected directory structure:"
+echo "/home/emerg1/app/"
+echo "├── manage.py"
+echo "├── graph_api/"
+echo "│   ├── __init__.py"
+echo "│   ├── settings.py"
+echo "│   ├── urls.py"
+echo "│   └── wsgi.py"
+echo "└── [other apps/modules]"
 ```
 
-Make it executable:
+### **Make All Scripts Executable**
 
 ```bash
-chmod +x /home/emerg1/app/check_django_setup.sh
-```
-
-## **Usage Instructions**
-
-### **Step 1: Setup and Check Environment**
-
-```bash
-# Check Django setup
 cd /home/emerg1/app
-./check_django_setup.sh
+chmod +x start_django_nohup.sh
+chmod +x stop_django.sh
+chmod +x manage_django.sh
+chmod +x check_django_setup.sh
 ```
 
-### **Step 2: Start Django API**
+## **Usage for Your graph_api Structure**
+
+### **Start the Graph API**
 
 ```bash
-# Start the Django API
+cd /home/emerg1/app
+
+# Check setup first
+./check_django_setup.sh
+
+# Start the API
 ./manage_django.sh start
 
-# Or use the direct start script
+# Or use direct start
 ./start_django_nohup.sh
 ```
 
-### **Step 3: Test the API**
+### **Test the Graph API**
 
 ```bash
 # Check status
@@ -346,56 +378,17 @@ curl http://10.198.52.64:7000/
 ./manage_django.sh logs
 ```
 
-### **Step 4: Manage the API**
-
-```bash
-# Restart
-./manage_django.sh restart
-
-# Stop
-./manage_django.sh stop
-
-# Check status
-./manage_django.sh status
-
-# Run migrations
-./manage_django.sh migrate
-
-# Open Django shell
-./manage_django.sh shell
-```
-
-## **Firewall Configuration**
-
-```bash
-# Open port 7000 for Django API
-sudo firewall-cmd --add-port=7000/tcp --permanent
-sudo firewall-cmd --reload
-
-# Check if port is open
-sudo firewall-cmd --list-ports
-```
-
-## **Auto-Start on Boot (Optional)**
-
-```bash
-# Add to crontab for auto-start
-crontab -e
-
-# Add this line:
-@reboot /home/emerg1/app/start_django_nohup.sh
-```
-
-## **Directory Structure Expected**
+## **Expected Directory Structure**
 
 ```
 /home/emerg1/app/
 ├── manage.py
-├── app/
+├── graph_api/
 │   ├── __init__.py
 │   ├── settings.py
 │   ├── urls.py
-│   └── wsgi.py
+│   ├── wsgi.py
+│   └── [other graph_api files]
 ├── logs/                    # Created automatically
 ├── static/                  # Django static files
 ├── uwsgi_django.ini
@@ -405,4 +398,4 @@ crontab -e
 └── check_django_setup.sh
 ```
 
-This setup will run your Django API on **http://10.198.52.64:7000** and handle all Django-specific requirements including migrations, static files, and proper WSGI configuration!
+The scripts are now configured for your `graph_api` project structure and will run on **http://10.198.52.64:7000**!
